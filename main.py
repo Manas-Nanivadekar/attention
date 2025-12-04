@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+import copy
 
 
 class PositionalEncoding(nn.Module):
@@ -113,3 +114,24 @@ class EncoderLayer(nn.Module):
         ff_output = self.feed_forward(x)
         x = self.norm2(x + self.dropout(ff_output))
         return x
+
+
+def clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
+
+
+class Encoder(nn.Module):
+    def __init__(self, layer, N, vocab_size):
+        super().__init__()
+        self.embd = nn.Embedding(vocab_size, layer.d_model)
+        self.pe = PositionalEncoding(layer.d_model, dropout=layer.dropout.p)
+        self.layers = clones(layer, N)
+        self.norm = nn.LayerNorm(layer.norm1.normalized_shape)
+
+    def forward(self, x, mask):
+        x = self.embd(x) * math.sqrt(x.size(-1))
+        x = self.pe(x)
+        for layer in self.layers:
+            x = layer(x, mask)
+
+        return self.norm(x)
