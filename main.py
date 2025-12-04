@@ -129,7 +129,7 @@ class Encoder(nn.Module):
         self.norm = nn.LayerNorm(layer.norm1.normalized_shape)
 
     def forward(self, x, mask):
-        x = self.embd(x) * math.sqrt(x.size(-1))
+        x = self.embd(x) * math.sqrt(self.embd.embedding_dim)
         x = self.pe(x)
         for layer in self.layers:
             x = layer(x, mask)
@@ -156,3 +156,19 @@ class DecoderLayer(nn.Module):
         ff_output = self.feed_forward(x)
         x = self.norm3(x + self.dropout(ff_output))
         return x
+
+
+class Decoder(nn.Module):
+    def __init__(self, layer, N, vocab_size):
+        super().__init__()
+        self.embed = nn.Embedding(vocab_size, layer.d_model)
+        self.pe = PositionalEncoding(layer.d_model, dropout=layer.dropout.p)
+        self.layers = clones(layer, N)
+        self.norm = nn.LayerNorm(layer.d_model)
+
+    def forward(self, x, memory, src_mask, tgt_mask):
+        x = self.embed(x) * math.sqrt(self.embed.embedding_dim)
+        x = self.pe(x)
+        for layer in self.layers:
+            x = layer(x, memory, src_mask, tgt_mask)
+        return self.norm(x)
